@@ -1,7 +1,8 @@
-# Frozen CIKM 2026 Rescue Protocol
+# Evaluation Protocol
 
-Generated for the acceptance-readiness iteration. This protocol is fixed before
-running the new decision-evidence experiments.
+This document records the evaluation settings fixed before the reported
+decision-evidence experiments: endpoints, data splits, baseline selection,
+confidence intervals, and success criteria.
 
 ## Primary Endpoint
 
@@ -79,8 +80,9 @@ lower 95% confidence bound above zero and no larger matched constraint
 violation. Response-aware IDVC is a secondary bridge contrast unless guarded
 IDVC is inapplicable in the bridge configuration.
 
-If unchanged BAT and the supported bridge both fail this gate, the manuscript
-must be narrowed to calibration diagnostics and controlled mechanism evidence.
+If unchanged BAT and the supported bridge both fail this gate, the evidence
+supports calibration diagnostics and controlled mechanisms rather than a
+decision-lift claim.
 
 ### Frozen Bridge Scenario Registry
 
@@ -109,9 +111,9 @@ Exact final command:
 python3 experiments/run_supported_bridge.py --seeds 100 --contexts 60 --out experiments/results/supported_bridge.json --report experiments/results/supported_bridge.md
 ```
 
-## Final-Run Discipline
+## Full-data Runs
 
-Acceptance-evidence runs must use full BAT with `--max-campaigns` unset and
+Reported BAT replay runs use full BAT with `--max-campaigns` unset and
 `--max-stats-rows` unset. Capped runs are smoke tests only and are not
 evidentiary.
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Write an anonymized reproducibility manifest for the CIKM artifact."""
+"""Write a reproducibility manifest for the CIKM code release."""
 
 from __future__ import annotations
 
@@ -16,10 +16,14 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 COMMANDS = [
+    "python3 experiments/run_full_synthetic.py --n 5000 --out experiments/results/full_synthetic.json --report experiments/results/full_synthetic_report.md",
+    "python3 experiments/run_warm_start_suite.py --n 5000 --horizon 100 --seeds 100 --out experiments/results/warm_start_suite.json --report experiments/results/warm_start_suite.md",
+    "python3 experiments/bat_runner.py --full --json-name bat_full_admissible.json --md-name bat_full_admissible.md",
     "python3 experiments/test_cold_start_frontier.py",
     "python3 experiments/test_supported_bridge.py",
     "python3 experiments/bat_cold_start_runner.py --jobs 2 --json-name bat_cold_start_frontier_full.json --md-name bat_cold_start_frontier_full.md --timeout 180",
     "python3 experiments/run_supported_bridge.py --seeds 100 --contexts 60 --out experiments/results/supported_bridge.json --report experiments/results/supported_bridge.md",
+    "python3 experiments/generate_bat_category_hour_surfaces.py",
     "python3 experiments/generate_paper_artifacts.py --bat experiments/results/bat_full_admissible.json --cold-start experiments/results/bat_cold_start_frontier_full.json --bridge experiments/results/supported_bridge.json --out-dir experiments/results",
     "python3 experiments/generate_artifact_manifest.py",
 ]
@@ -27,6 +31,9 @@ COMMANDS = [
 
 SOURCE_FILES = [
     "README.md",
+    "CITATION.cff",
+    "experiments/REPRODUCING.md",
+    "experiments/requirements.txt",
     "experiments/README.md",
     "experiments/ACCEPTANCE_PROTOCOL.md",
     "experiments/bat_cold_start_runner.py",
@@ -39,6 +46,7 @@ SOURCE_FILES = [
     "experiments/bat_download_check.py",
     "experiments/bat_schema_sample.py",
     "experiments/public_rtb_check.py",
+    "experiments/generate_bat_category_hour_surfaces.py",
     "experiments/run_supported_bridge.py",
     "experiments/generate_paper_artifacts.py",
     "experiments/generate_artifact_manifest.py",
@@ -56,10 +64,13 @@ OUTPUTS = [
     "experiments/results/supported_bridge.json",
     "experiments/results/supported_bridge.md",
     "experiments/results/paper_artifacts.md",
+    "experiments/results/bat_category_hour_dual_surface_summary.json",
     "experiments/results/tables/bat_frontier_gate_status.csv",
     "experiments/results/tables/bat_frontier_bootstrap.csv",
     "experiments/results/tables/supported_bridge_gate.csv",
     "experiments/results/tables/supported_bridge_sensitivity.csv",
+    "experiments/results/figures/idvc_workflow_surface_panel.pdf",
+    "experiments/results/figures/bat_selected_category_hour_dual_surfaces_clean.pdf",
     "experiments/results/figures/warm_start_effect_forest.pdf",
     "experiments/results/figures/mechanism_boundary_panel.pdf",
 ]

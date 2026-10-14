@@ -17,41 +17,33 @@ auction settings.
 - `experiments/ACCEPTANCE_PROTOCOL.md` — frozen evaluation protocol and success
   gates.
 
-The code submission excludes manuscript LaTeX sources, the bibliography, ACM
-templates, and local reviewer notes. These remain in the author's local working
-directory. Table-generation scripts may create `.tex` fragments locally; those
-generated files are excluded from version control and the submission ZIP.
-
 ## Quick start
 
-The core synthetic checks use only the Python standard library:
+Run a small synthetic check from the repository root. No external packages or
+dataset downloads are needed:
 
 ```bash
 python3 experiments/run_synthetic_smoke.py \
   --out experiments/results/synthetic_smoke.json
 ```
 
-Run the complete available experiment pipeline with:
-
-```bash
-python3 experiments/run_all.py --synthetic-n 5000 --bat-max-rows 20000
-```
-
-Optional dependencies for full BAT experiments can be installed in a local
-environment:
-
-```bash
-python3 -m venv experiments/.venv
-experiments/.venv/bin/pip install -r experiments/requirements.txt
-```
-
-See [`experiments/README.md`](experiments/README.md) for individual commands,
-outputs, and experiment details.
+The JSON output is written to `experiments/results/synthetic_smoke.json`.
+See [the script guide](experiments/README.md) to choose an experiment and
+[the reproduction guide](experiments/REPRODUCING.md) for full paper runs and
+plotting dependencies.
 
 ## Data and reproducibility
 
-Large datasets, local caches, virtual environments, and generated experiment
-outputs are excluded from version control. Public BAT data can be checked or
-downloaded through the scripts documented in `experiments/README.md`. Main
+Selected result files are included in `experiments/results/`. Raw datasets,
+local caches, virtual environments, and newly generated outputs are ignored by
+Git. Public BAT data are accessed by the documented runners. Main
 results use chronological splits and keep final-test campaigns isolated from
 model fitting and policy selection.
+
+## Citation
+
+Andrey Pudovikov, Aleksandr Katrutsa, Egor Samosvat, and Yuriy Dorn.
+**Cold-Start Constrained Autobidding via Implied-Dual Calibration.** CIKM 2026.
+[DOI: 10.1145/3799682.3841153](https://doi.org/10.1145/3799682.3841153).
+
+Machine-readable citation metadata are provided in [CITATION.cff](CITATION.cff).
