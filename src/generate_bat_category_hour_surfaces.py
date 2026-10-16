@@ -14,7 +14,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-from experiment_utils import OLS2Accumulator, bat_row_from_csv, iter_csv_rows, load_campaign_metadata
+from src.experiment_utils import OLS2Accumulator, bat_row_from_csv, iter_csv_rows, load_campaign_metadata
 
 
 DEFAULT_SOURCES = {

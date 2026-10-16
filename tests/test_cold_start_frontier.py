@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from bat_cold_start_runner import (
+from src.bat_cold_start_runner import (
     BOOTSTRAP_RESAMPLES,
     BOOTSTRAP_SEED,
     FIXED_HORIZONS,

@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from run_supported_bridge import (
+from src.run_supported_bridge import (
     COMPARATOR,
     MIN_BOOTSTRAP_CLUSTERS,
     PRIMARY_POLICY,

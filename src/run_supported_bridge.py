@@ -413,7 +413,7 @@ def summarize(
         ),
     }
     return {
-        "generated_by": "experiments/run_supported_bridge.py",
+        "generated_by": "src/run_supported_bridge.py",
         "bridge_type": "BAT-shaped semi-synthetic supported bridge",
         "claim_boundary": "Mechanism evidence with BAT-shaped support and injected known response transforms; not unchanged public-BAT deployment lift.",
         "scenario_registry": registry,
@@ -536,7 +536,7 @@ def render_report(payload: Mapping[str, object]) -> str:
     )
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--seeds", type=int, default=100)
     parser.add_argument("--contexts", type=int, default=60)
@@ -544,7 +544,7 @@ def main() -> int:
     parser.add_argument("--no-sensitivity", action="store_true")
     parser.add_argument("--out", default="experiments/results/supported_bridge.json")
     parser.add_argument("--report", default="experiments/results/supported_bridge.md")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     payload = run_bridge(seeds=args.seeds, contexts=args.contexts, seed=args.seed)
     if not args.no_sensitivity:

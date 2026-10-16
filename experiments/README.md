@@ -1,55 +1,25 @@
-# Experiments
+# Main experiments
 
-Code for the synthetic, public BAT, and semi-synthetic experiments in
-**Cold-Start Constrained Autobidding via Implied-Dual Calibration**.
+These three entry points reproduce the main experimental cases in the final
+paper. Run them from the repository root; their defaults use the full paper
+settings.
 
-## Quick start
+| Entry point | Default configuration | Output in `results/` |
+| --- | --- | --- |
+| `python3 -m experiments.bat_calibration` | Full VCG and FPA BAT calibration; admissible dual fits. | `bat_full_admissible.json`, `bat_full_admissible.md` |
+| `python3 -m experiments.supported_bridge` | 100 seeds, 60 contexts, all declared scenarios and the sensitivity grid. | `supported_bridge.json`, `supported_bridge.md` |
+| `python3 -m experiments.warm_start` | 100 seeds, 100 controller updates, matched/shifted/FPA/hybrid/mismatch settings. | `warm_start_suite.json`, `warm_start_suite.md` |
 
-From the repository root, run:
+The bridge and warm-start experiments need only Python's standard library and
+no external dataset. BAT streams public CSVs unless local files are available.
+Use `--help` with an entry point to inspect input and output options.
 
-```bash
-python3 experiments/run_synthetic_smoke.py --out experiments/results/synthetic_smoke.json
-```
+Implementations and plotting code live in [`src/`](../src/); the entry points
+only select the paper configuration. See the
+[reproduction guide](../docs/reproducing.md) for data paths, figure generation,
+and supplementary experiments, and the
+[evaluation protocol](../docs/evaluation.md) for baselines and success criteria.
 
-This small synthetic check needs only Python's standard library and no dataset
-download. It writes calibration, auction-response, and initialization metrics
-to `experiments/results/synthetic_smoke.json`. It checks the implementation;
-it does not reproduce the full paper results.
-
-For full experiment commands, data access, and figure generation, see
-[Reproducing the experiments](REPRODUCING.md). The
-[evaluation protocol](ACCEPTANCE_PROTOCOL.md) specifies splits, baselines,
-endpoints, and confidence intervals.
-
-## Which scripts should I use?
-
-Choose the runner for the experiment you want to reproduce:
-
-| Script | Purpose |
-| --- | --- |
-| `run_synthetic_smoke.py` | Small, data-free implementation check. |
-| `run_full_synthetic.py` | Synthetic calibration and identification experiments. |
-| `run_warm_start_suite.py` | Controlled controller/initialization comparisons. |
-| `run_supported_bridge.py` | BAT-shaped semi-synthetic experiments with known bid maps. |
-| `bat_runner.py` | Public BAT calibration diagnostics. |
-| `bat_cold_start_runner.py` | Chronological BAT campaign replay against historical stationary reuse. |
-
-The runners share `experiment_utils.py`; BAT replay also imports `bat_runner.py`.
-Keep these dependencies even when running only one experiment.
-`generate_paper_artifacts.py` produces tables and figures and imports
-`run_full_synthetic.py`. `generate_artifact_manifest.py` records file hashes and
-environment details. The two `test_*.py` files check replay and bridge logic.
-`generate_bat_category_hour_surfaces.py` generates the paper's category/hour
-dual-surface figure from the BAT CSVs.
-
-The remaining tools are optional: `bat_download_check.py` checks dataset access,
-`bat_schema_sample.py` inspects a small CSV sample, `public_rtb_check.py` checks
-availability of supplementary RTB sources, and `run_all.py` orchestrates bounded
-smoke runs. They are not additional steps required for each experiment.
-
-## Included results
-
-`results/` contains selected result JSON, reports, CSV tables, and figures from
-the reported experiments. Read `results/paper_artifacts.md` for the evidence
-summary. Raw BAT data are fetched separately; local caches and newly generated
-outputs are ignored by Git.
+Selected reference results, tables, and figures are included in `results/`.
+New runs overwrite matching output names by default; use `--out`/`--report`
+for bridge and warm start, or `--out-dir` for BAT, to keep a separate run.

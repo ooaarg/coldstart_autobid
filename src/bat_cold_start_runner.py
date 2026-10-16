@@ -18,7 +18,7 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from typing import Iterable, Mapping
 
-from experiment_utils import (
+from src.experiment_utils import (
     ADMISSIBLE_ALPHA_MAX,
     ADMISSIBLE_ALPHA_MIN,
     ADMISSIBLE_S_MIN,
@@ -35,7 +35,7 @@ from experiment_utils import (
     utc_now,
     write_json,
 )
-from bat_runner import BASE_URL, FILES
+from src.bat_runner import BASE_URL, FILES
 
 
 LOCAL_DEFAULTS = {

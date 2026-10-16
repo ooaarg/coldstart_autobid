@@ -16,53 +16,40 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 COMMANDS = [
-    "python3 experiments/run_full_synthetic.py --n 5000 --out experiments/results/full_synthetic.json --report experiments/results/full_synthetic_report.md",
-    "python3 experiments/run_warm_start_suite.py --n 5000 --horizon 100 --seeds 100 --out experiments/results/warm_start_suite.json --report experiments/results/warm_start_suite.md",
-    "python3 experiments/bat_runner.py --full --json-name bat_full_admissible.json --md-name bat_full_admissible.md",
-    "python3 experiments/test_cold_start_frontier.py",
-    "python3 experiments/test_supported_bridge.py",
-    "python3 experiments/bat_cold_start_runner.py --jobs 2 --json-name bat_cold_start_frontier_full.json --md-name bat_cold_start_frontier_full.md --timeout 180",
-    "python3 experiments/run_supported_bridge.py --seeds 100 --contexts 60 --out experiments/results/supported_bridge.json --report experiments/results/supported_bridge.md",
-    "python3 experiments/generate_bat_category_hour_surfaces.py",
-    "python3 experiments/generate_paper_artifacts.py --bat experiments/results/bat_full_admissible.json --cold-start experiments/results/bat_cold_start_frontier_full.json --bridge experiments/results/supported_bridge.json --out-dir experiments/results",
-    "python3 experiments/generate_artifact_manifest.py",
+    "python3 -m experiments.warm_start",
+    "python3 -m experiments.supported_bridge",
+    "python3 -m experiments.bat_calibration",
+    "python3 -m src.bat_cold_start_runner --jobs 2 --json-name bat_cold_start_frontier_full.json --md-name bat_cold_start_frontier_full.md --timeout 180",
+    "python3 -m src.generate_bat_category_hour_surfaces",
+    "python3 -m src.generate_paper_artifacts --bat experiments/results/bat_full_admissible.json --cold-start experiments/results/bat_cold_start_frontier_full.json --warm-start experiments/results/warm_start_suite.json --bridge experiments/results/supported_bridge.json --out-dir experiments/results",
+    "python3 -m tests.test_cold_start_frontier",
+    "python3 -m tests.test_supported_bridge",
+    "python3 -m src.generate_artifact_manifest",
 ]
-
 
 SOURCE_FILES = [
     "README.md",
-    "CITATION.cff",
-    "experiments/REPRODUCING.md",
-    "experiments/requirements.txt",
+    "requirements.txt",
+    "docs/reproducing.md",
+    "docs/evaluation.md",
+    "docs/figures/idvc-workflow.png",
     "experiments/README.md",
-    "experiments/ACCEPTANCE_PROTOCOL.md",
-    "experiments/bat_cold_start_runner.py",
-    "experiments/experiment_utils.py",
-    "experiments/bat_runner.py",
-    "experiments/run_full_synthetic.py",
-    "experiments/run_synthetic_smoke.py",
-    "experiments/run_warm_start_suite.py",
-    "experiments/run_all.py",
-    "experiments/bat_download_check.py",
-    "experiments/bat_schema_sample.py",
-    "experiments/public_rtb_check.py",
-    "experiments/generate_bat_category_hour_surfaces.py",
-    "experiments/run_supported_bridge.py",
-    "experiments/generate_paper_artifacts.py",
-    "experiments/generate_artifact_manifest.py",
-    "experiments/test_cold_start_frontier.py",
-    "experiments/test_supported_bridge.py",
+    "experiments/__init__.py",
+    "experiments/bat_calibration.py",
+    "experiments/supported_bridge.py",
+    "experiments/warm_start.py",
+    *sorted(str(p.relative_to(ROOT)) for p in (ROOT / "src").glob("*.py")),
+    *sorted(str(p.relative_to(ROOT)) for p in (ROOT / "tests").glob("*.py")),
 ]
 
-
 OUTPUTS = [
-    "cikm_implied_duals.pdf",
-    "experiments/ACCEPTANCE_PROTOCOL.md",
     "experiments/results/bat_full_admissible.json",
     "experiments/results/bat_cold_start_frontier_full.json",
     "experiments/results/bat_cold_start_frontier_full.md",
     "experiments/results/supported_bridge.json",
     "experiments/results/supported_bridge.md",
+    "experiments/results/warm_start_suite.json",
+    "experiments/results/warm_start_suite.md",
     "experiments/results/paper_artifacts.md",
     "experiments/results/bat_category_hour_dual_surface_summary.json",
     "experiments/results/tables/bat_frontier_gate_status.csv",
@@ -161,7 +148,7 @@ def main() -> int:
             "counts": json_counts(path),
         }
     manifest = {
-        "generated_by": "experiments/generate_artifact_manifest.py",
+        "generated_by": "src/generate_artifact_manifest.py",
         "git_commit": command_output(["git", "rev-parse", "--short", "HEAD"]),
         "git_status_scope": "source and artifact paths only; local notes/raw data/draft supplements intentionally excluded",
         "git_status_short": command_output(["git", "status", "--short", "--", *sorted(set(SOURCE_FILES + OUTPUTS))]),
@@ -171,6 +158,7 @@ def main() -> int:
         "outputs": outputs,
     }
     out = ROOT / "experiments/results/artifact_manifest.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
     print(f"Wrote {out.relative_to(ROOT)}")
     return 0

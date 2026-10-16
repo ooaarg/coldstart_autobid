@@ -86,7 +86,7 @@ decision-lift claim.
 
 ### Frozen Bridge Scenario Registry
 
-The bridge uses `experiments/run_supported_bridge.py` with seed `20260522`,
+The bridge uses `src/run_supported_bridge.py` with seed `20260522`,
 `100` seeds, `60` contexts, horizons `1,3,6,12,24`, and paired cluster
 bootstrap with `1000` resamples. Primary policy is `guarded_idvc`; comparator is
 `historical_stationary`. The guard abstains when
@@ -108,7 +108,7 @@ this 3x3 grid passes the same primary gate and negative controls.
 Exact final command:
 
 ```sh
-python3 experiments/run_supported_bridge.py --seeds 100 --contexts 60 --out experiments/results/supported_bridge.json --report experiments/results/supported_bridge.md
+python3 -m experiments.supported_bridge
 ```
 
 ## Full-data Runs
@@ -124,5 +124,5 @@ duration. Test-period outcome counts are not used for budget scheduling.
 Exact final BAT frontier command:
 
 ```sh
-python3 experiments/bat_cold_start_runner.py --jobs 2 --json-name bat_cold_start_frontier_full.json --md-name bat_cold_start_frontier_full.md --timeout 180
+python3 -m src.bat_cold_start_runner --jobs 2 --json-name bat_cold_start_frontier_full.json --md-name bat_cold_start_frontier_full.md --timeout 180
 ```

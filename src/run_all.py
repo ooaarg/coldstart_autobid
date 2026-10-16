@@ -61,15 +61,15 @@ def main() -> int:
     steps: list[tuple[str, list[str]]] = [
         (
             "synthetic_smoke",
-            [py, "experiments/run_synthetic_smoke.py", "--n", str(args.synthetic_n), "--out", "experiments/results/synthetic_smoke.json"],
+            [py, "-m", "src.run_synthetic_smoke", "--n", str(args.synthetic_n), "--out", "experiments/results/synthetic_smoke.json"],
         ),
         (
             "bat_access",
-            [py, "experiments/bat_download_check.py", "--out", "experiments/results/bat_access.json"],
+            [py, "-m", "src.bat_download_check", "--out", "experiments/results/bat_access.json"],
         ),
         (
             "bat_schema_sample",
-            [py, "experiments/bat_schema_sample.py", "--out", "experiments/results/bat_schema_sample.json", "--bytes", "65536", "--rows", "2"],
+            [py, "-m", "src.bat_schema_sample", "--out", "experiments/results/bat_schema_sample.json", "--bytes", "65536", "--rows", "2"],
         ),
     ]
 
@@ -78,7 +78,8 @@ def main() -> int:
             "full_synthetic",
             [
                 py,
-                "experiments/run_full_synthetic.py",
+                "-m",
+                "src.run_full_synthetic",
                 "--n",
                 str(args.synthetic_n),
                 "--out",
@@ -86,13 +87,14 @@ def main() -> int:
                 "--report",
                 "experiments/results/full_synthetic_report.md",
             ],
-            "experiments/run_full_synthetic.py",
+            "src/run_full_synthetic.py",
         ),
         (
             "bat_admissible_calibration",
             [
                 py,
-                "experiments/bat_runner.py",
+                "-m",
+                "src.bat_runner",
                 "--max-rows",
                 str(args.bat_max_rows),
                 "--json-name",
@@ -100,13 +102,14 @@ def main() -> int:
                 "--md-name",
                 "bat_admissible_smoke.md",
             ],
-            "experiments/bat_runner.py",
+            "src/bat_runner.py",
         ),
         (
             "bat_cold_start_replay",
             [
                 py,
-                "experiments/bat_cold_start_runner.py",
+                "-m",
+                "src.bat_cold_start_runner",
                 "--max-campaigns",
                 str(args.bat_max_campaigns),
                 "--max-stats-rows",
@@ -116,13 +119,14 @@ def main() -> int:
                 "--md-name",
                 "bat_cold_start_smoke.md",
             ],
-            "experiments/bat_cold_start_runner.py",
+            "src/bat_cold_start_runner.py",
         ),
         (
             "warm_start_suite",
             [
                 py,
-                "experiments/run_warm_start_suite.py",
+                "-m",
+                "src.run_warm_start_suite",
                 "--n",
                 str(args.synthetic_n),
                 "--horizon",
@@ -134,12 +138,12 @@ def main() -> int:
                 "--report",
                 "experiments/results/warm_start_suite.md",
             ],
-            "experiments/run_warm_start_suite.py",
+            "src/run_warm_start_suite.py",
         ),
         (
             "public_rtb_check",
-            [py, "experiments/public_rtb_check.py", "--out", "experiments/results/public_rtb_check.json"],
-            "experiments/public_rtb_check.py",
+            [py, "-m", "src.public_rtb_check", "--out", "experiments/results/public_rtb_check.json"],
+            "src/public_rtb_check.py",
         ),
     ]
     for name, cmd, script in optional_steps:

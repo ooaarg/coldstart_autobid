@@ -91,7 +91,7 @@ def main() -> int:
     status["expected_subsets_missing_by_datasets"] = missing
     if missing and status["metadata_accessible"]:
         status["note"] = (
-            "Metadata is reachable. Install experiments/requirements.txt and run the full "
+            "Metadata is reachable. Install requirements.txt and run the full "
             "loader to inspect split names and schema; missing configs here may reflect an "
             "older datasets client or dataset-card naming."
         )

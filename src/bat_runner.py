@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Run public BAT calibration experiments with streaming stats readers.
 
-The default run intentionally uses a bounded stats sample. Pass --full to stream
-the full public Hugging Face stats files.
+Pass --full to stream all public statistics rows. The paper entry point,
+python -m experiments.bat_calibration, enables this option by default.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ import os
 import sys
 from typing import Mapping
 
-from experiment_utils import (
+from src.experiment_utils import (
     BatAccumulator,
     bat_row_from_csv,
     ensure_dir,
@@ -362,7 +362,7 @@ def render_markdown(payload: Mapping[str, object]) -> str:
     return "\n".join(lines)
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out-dir", default="experiments/results")
     parser.add_argument("--json-name", default="bat_calibration.json")
@@ -378,11 +378,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--vcg-campaigns")
     parser.add_argument("--fpa-stats")
     parser.add_argument("--fpa-campaigns")
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
-def main() -> int:
-    args = parse_args()
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
     limit = row_limit(args)
     selected = ["vcg", "fpa"] if args.only == "both" else [args.only]
     payload: dict[str, object] = {

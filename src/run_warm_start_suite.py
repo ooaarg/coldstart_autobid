@@ -310,7 +310,7 @@ def render_report(payload: Mapping[str, object]) -> str:
     return "\n".join(lines)
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--n", type=int, default=5000, help="Retained for parity with other runners; the controller suite is scenario-based.")
     parser.add_argument("--horizon", type=int, default=100)
@@ -318,7 +318,7 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=20260519)
     parser.add_argument("--out", default="experiments/results/warm_start_suite.json")
     parser.add_argument("--report", default="experiments/results/warm_start_suite.md")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     all_rows: list[dict[str, object]] = []
     for offset in range(args.seeds):

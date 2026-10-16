@@ -53,3 +53,17 @@ experiments/.cache/
 /output/
 /tmp/
 /submission/
+
+# Manuscript and citation metadata are maintained separately from the code.
+/cikm_implied_duals.pdf
+/CITATION.cff
+/citations.cff
+
+# Private workbench files and local compatibility imports.
+/experiments/STATUS.md
+/experiments/bat_requirements.txt
+/experiments/cache_bat_data.py
+/experiments/prototype_bat_panel_c.py
+/experiments/test_admissible_solver.py
+/experiments/experiment_utils.py
+/experiments/generate_bat_category_hour_surfaces.py

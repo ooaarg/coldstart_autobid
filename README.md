@@ -1,49 +1,44 @@
 # Cold-Start Constrained Autobidding
 
-Research code for **Cold-Start Constrained Autobidding via
-Implied-Dual Calibration**.
+Code for [**Cold-Start Constrained Autobidding via Implied-Dual Calibration**](https://doi.org/10.1145/3799682.3841153), CIKM 2026.
 
-When a new ad enters an existing auction market, its first bid must be chosen
-before any ad-specific feedback is available. This project studies that
-cold-start decision under budget and CPC-style constraints. The proposed method
-reuses a compact, admissible implied-dual surface learned from related historical
-contexts and converts it into bids for SPA/VCG, first-price, and supported hybrid
-auction settings.
+![The paper's workflow: calibrate an admissible dual surface from historical logs, then use the new ad context to choose its first constrained bid.](docs/figures/idvc-workflow.png)
 
-## Repository layout
+A new ad must choose its first bid before receiving ad-specific feedback.
+Implied-dual calibration reuses compact constraint and market information from
+related historical contexts and converts it into bids under a supported auction
+format.
 
-- `cikm_implied_duals.pdf` — compiled CIKM 2026 manuscript.
-- `experiments/` — reproducible synthetic, BAT, and semi-synthetic experiments.
-- `experiments/ACCEPTANCE_PROTOCOL.md` — frozen evaluation protocol and success
-  gates.
+## Run an experiment
 
-## Quick start
-
-Run a small synthetic check from the repository root. No external packages or
-dataset downloads are needed:
+From the repository root, run the paper's controlled warm-start experiment:
 
 ```bash
-python3 experiments/run_synthetic_smoke.py \
-  --out experiments/results/synthetic_smoke.json
+python3 -m experiments.warm_start
 ```
 
-The JSON output is written to `experiments/results/synthetic_smoke.json`.
-See [the script guide](experiments/README.md) to choose an experiment and
-[the reproduction guide](experiments/REPRODUCING.md) for full paper runs and
-plotting dependencies.
+This runs **100 seeds and 100 controller updates** using only Python's standard
+library. Results and a readable report are written to `experiments/results/`.
 
-## Data and reproducibility
+The three main cases are:
 
-Selected result files are included in `experiments/results/`. Raw datasets,
-local caches, virtual environments, and newly generated outputs are ignored by
-Git. Public BAT data are accessed by the documented runners. Main
-results use chronological splits and keep final-test campaigns isolated from
-model fitting and policy selection.
+| Experiment | Command | Evidence |
+| --- | --- | --- |
+| Public BAT calibration | `python3 -m experiments.bat_calibration` | Admissible calibration of the BAT proxy target; full public CSVs. |
+| Supported bridge | `python3 -m experiments.supported_bridge` | Semi-synthetic known bid maps; 100 seeds, 60 contexts, sensitivity grid. |
+| Controlled warm start | `python3 -m experiments.warm_start` | Initialization and auction-response comparisons over 100 seeds. |
 
-## Citation
+BAT requires local CSVs or a dataset download. The bridge and warm-start cases
+need no external data. All three commands default to the paper settings.
 
-Andrey Pudovikov, Aleksandr Katrutsa, Egor Samosvat, and Yuriy Dorn.
-**Cold-Start Constrained Autobidding via Implied-Dual Calibration.** CIKM 2026.
-[DOI: 10.1145/3799682.3841153](https://doi.org/10.1145/3799682.3841153).
+## Repository guide
 
-Machine-readable citation metadata are provided in [CITATION.cff](CITATION.cff).
+- [`experiments/`](experiments/README.md): the three experiment entry points and selected results.
+- [`src/`](src/): implementation, plotting, and supporting diagnostics.
+- [`tests/`](tests/): replay and bridge regression checks.
+- [Reproduction guide](docs/reproducing.md): inputs, outputs, figures, and supplementary analyses.
+- [Evaluation protocol](docs/evaluation.md): splits, baselines, endpoints, and uncertainty.
+
+Raw datasets and local caches are excluded from Git. Public BAT calibration is
+reported as proxy evidence; decision effects are evaluated separately under the
+bridge's known bid maps and the controlled warm-start settings.

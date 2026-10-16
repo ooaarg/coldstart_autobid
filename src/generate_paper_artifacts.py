@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
-from run_full_synthetic import CPC, dpsi_fpa, fit_contextual_theta, generate_base, psi_fpa, true_theta
+from src.run_full_synthetic import CPC, dpsi_fpa, fit_contextual_theta, generate_base, psi_fpa, true_theta
 
 
 MIN_BOOTSTRAP_CLUSTERS = 30
@@ -1595,7 +1595,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--bat", default="experiments/results/bat_full.json")
     parser.add_argument("--cold-start")
-    parser.add_argument("--synthetic", default="experiments/results/full_synthetic.json")
+    parser.add_argument("--synthetic", help="Optional supplementary synthetic-diagnostic JSON.")
     parser.add_argument("--warm-start", default="experiments/results/warm_start_suite.json")
     parser.add_argument("--bridge", default="experiments/results/supported_bridge.json")
     parser.add_argument("--out-dir", default="experiments/results")
@@ -1620,7 +1620,7 @@ def main() -> None:
     )
     bat = load_json(args.bat)
     cold = load_json(args.cold_start) if args.cold_start else None
-    synth = load_json(args.synthetic)
+    synth = load_json(args.synthetic) if args.synthetic else {}
     warm = load_json(args.warm_start) if args.warm_start and Path(args.warm_start).exists() else None
     bridge = load_json(args.bridge) if args.bridge and Path(args.bridge).exists() else None
 
@@ -1644,6 +1644,8 @@ def main() -> None:
     warm_effect_numeric = warm_start_effects(warm)
     warm_effects = warm_start_effect_display(warm_effect_numeric)
     core_df = core_evidence_table(bat, synth)
+    if not synth:
+        core_df = core_df.iloc[:3].copy()
     write_table(core_df, "core_evidence_summary", tables_dir)
     write_table(summary, "bat_calibration_summary", tables_dir)
     write_table(target, "bat_target_construction", tables_dir)
@@ -1671,7 +1673,8 @@ def main() -> None:
     write_table(gram, "bat_gram_summary", tables_dir)
     write_table(categories, "bat_category_diagnostics", tables_dir)
     write_table(response, "bat_fpa_response_proxy", tables_dir)
-    write_table(synth_df, "synthetic_q_summary", tables_dir)
+    if synth:
+        write_table(synth_df, "synthetic_q_summary", tables_dir)
     if len(warm_start):
         write_table(warm_start, "warm_start_summary", tables_dir)
     if len(warm_oracle_gap):
@@ -1686,8 +1689,9 @@ def main() -> None:
     plot_ratio_hist(bat, figures_dir)
     plot_category_tcl(categories, figures_dir)
     plot_idvc_workflow_surface_panel(figures_dir)
-    plot_calibrated_surfaces_panel(bat, summary, synth, figures_dir)
-    plot_experimental_story_panel(bat, summary, synth, figures_dir)
+    if synth:
+        plot_calibrated_surfaces_panel(bat, summary, synth, figures_dir)
+        plot_experimental_story_panel(bat, summary, synth, figures_dir)
     plot_support_stratified_heldout(support_heldout, figures_dir)
     plot_warm_start_reward_trajectories(warm, figures_dir)
     plot_warm_start_constraint_trajectories(warm, figures_dir)
