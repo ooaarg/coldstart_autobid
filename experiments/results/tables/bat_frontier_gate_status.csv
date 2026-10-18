@@ -1,0 +1,3 @@
+auction,evidentiary_run,primary_policy,primary_comparator,unchanged_bat_pass,endpoint_ci_ok,constraint_ci_ok,clusters,min_clusters,consequence
+FPA,True,shrunk_contextual_idvc,historical_stationary_context_bin,False,False,True,2060,30,Unchanged public BAT remains boundary evidence; do not claim public-BAT deployment lift.
+VCG,True,shrunk_contextual_idvc,historical_stationary_context_bin,False,True,False,20672,30,Unchanged public BAT remains boundary evidence; do not claim public-BAT deployment lift.

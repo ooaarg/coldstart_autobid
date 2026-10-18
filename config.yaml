@@ -1,0 +1,45 @@
+# Edit, then run: python -m experiments
+# Start with warm_start (no data download). Add supported_bridge or bat_calibration below.
+tasks: [warm_start]
+output_dir: outputs             # Each task gets a folder with plots and index.html.
+plots: true
+progress: true
+
+warm_start:
+  seeds: 100
+  seed: 20260519
+  horizon: 100
+  gain: 0.22
+  tolerance: 0.05
+  guard_z: 1.65
+  shrinkage: 6.0
+
+supported_bridge:
+  seeds: 100
+  seed: 20260522
+  contexts: 60
+  horizons: [1, 3, 6, 12, 24]
+  gain: 0.24
+  tolerance: 0.05
+  guard_z: 1.65
+  shrinkage: 100.0
+  bootstrap_seed: 20260522
+  bootstrap_resamples: 1000
+  sensitivity: true
+  sensitivity_grid: [0.85, 1.0, 1.15]
+
+bat_calibration:
+  only: both                    # both, vcg, or fpa
+  full: true
+  sample_rows: 100000           # Used only when full is false and max_rows is null.
+  max_rows: null                # Set a positive row cap for quick checks, even in full mode.
+  campaign_max_rows: null
+  min_category_rows: 500
+  timeout: 180
+  top_categories: 10            # Category-hour surface plot from the paper.
+  min_cell_rows: 5000           # Cells below this support are masked.
+  # null: use the conventional local CSV if available, otherwise stream public BAT.
+  vcg_stats: null
+  vcg_campaigns: null
+  fpa_stats: null
+  fpa_campaigns: null

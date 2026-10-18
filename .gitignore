@@ -1,0 +1,70 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+
+# Local experiment environments and caches
+.venv/
+/outputs/
+experiments/.venv/
+experiments/data/
+experiments/results/
+experiments/cache/
+experiments/.cache/
+
+# Large external datasets should be fetched, not committed.
+*.parquet
+*.feather
+*.arrow
+*.pkl
+
+# Keep manuscript sources and TeX tooling local, outside the code submission.
+*.tex
+*.bib
+*.cls
+*.bst
+*.bbx
+*.cbx
+*.dbx
+*.dtx
+*.ins
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+/acm_template/
+/Formatting_Instructions_For_NeurIPS_2026/
+
+# Local working notes, draft manuscripts, and preview files.
+/AGENTS.md
+/questions/
+/discussion.md
+/deep-research-report*.md
+/iv*
+/online_implied.*
+/platform_idv_autobidding.*
+/cikm_implied_duals_camera_ready.*
+/cikm_implied_duals_supplement.*
+/cikm_implied_duals 1h session.pdf
+/doclicense-CC-by-88x31.pdf
+/output/
+/tmp/
+/submission/
+
+# Manuscript and citation metadata are maintained separately from the code.
+/cikm_implied_duals.pdf
+/CITATION.cff
+/citations.cff
+
+# Private workbench files and local compatibility imports.
+/experiments/STATUS.md
+/experiments/bat_requirements.txt
+/experiments/cache_bat_data.py
+/experiments/prototype_bat_panel_c.py
+/experiments/test_admissible_solver.py
+/experiments/experiment_utils.py
+/experiments/generate_bat_category_hour_surfaces.py
