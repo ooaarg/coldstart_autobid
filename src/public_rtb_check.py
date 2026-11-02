@@ -64,7 +64,7 @@ def render_markdown(payload: dict[str, object]) -> str:
             "## Interpretation",
             "",
             "Public RTB data should be used only as a censored-observability stress test.",
-            "Advertiser-side logs provide complementary observability checks; they do not supply missing structural BAT targets or bid maps.",
+            "The main identification claims should remain anchored in synthetic, BAT, and semi-synthetic BAT evidence.",
             "If a full public RTB run is needed, prepare it as a separate preprocessing stage with explicit license/access notes.",
             "",
             "## Minimum Data Needed For A Stronger Censoring Experiment",

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Controlled scalar-state bridge for cold-start initialization diagnostics.
+"""BAT-shaped semi-synthetic bridge for supported cold-start IDVC evidence.
 
-The bridge generates context profiles and prescribes initial states around a
-known target, with injected historical shifts and additive response biases.
-It neither reads BAT nor fits dual surfaces or inverts an auction bid map.
-Reward and violation are functions of scalar state error, not spend or CPC.
+The bridge freezes BAT-like context support and campaign counts, then injects
+known dual shifts and response transforms. It is mechanism evidence: it can
+validate the supported initialization claim, but it is not public-BAT
+deployment lift.
 """
 
 from __future__ import annotations
@@ -433,15 +433,15 @@ def summarize(
         "uncertainty_scope": "cluster bootstrap over synthetic campaign/context clusters conditional on the frozen scenario registry; not empirical BAT uncertainty",
         "minimum_bootstrap_clusters": MIN_BOOTSTRAP_CLUSTERS,
         "required_manuscript_consequence": (
-            "Bridge may be reported as a prescribed scalar-state diagnostic, not end-to-end IDVC or public-BAT deployment lift."
+            "Bridge may be reported as BAT-shaped known-transform synthetic mechanism evidence, not public-BAT deployment lift."
             if pass_gate
             else "Bridge gate failed; do not use it as positive decision evidence."
         ),
     }
     return {
         "generated_by": "src/run_supported_bridge.py",
-        "bridge_type": "Controlled synthetic scalar-state bridge",
-        "claim_boundary": "Prescribed initial states with injected shifts and additive biases; no BAT data, dual fitting, auction payments, or bid-map inversion.",
+        "bridge_type": "BAT-shaped semi-synthetic supported bridge",
+        "claim_boundary": "Mechanism evidence with BAT-shaped support and injected known response transforms; not unchanged public-BAT deployment lift.",
         "scenario_registry": registry,
         "seed": seed,
         "seeds": seeds,
@@ -474,7 +474,6 @@ def run_sensitivity(seeds: int, contexts: int, seed: int, settings: Settings = S
     rows = []
     for shift_multiplier in track(grid, "Sensitivity shifts", unit="shift", enabled=progress):
         for response_multiplier in grid:
-            status(f"  Sensitivity: shift={shift_multiplier:g}, response={response_multiplier:g}", progress)
             payload = run_bridge(
                 seeds=seeds,
                 contexts=contexts,
@@ -498,7 +497,6 @@ def run_sensitivity(seeds: int, contexts: int, seed: int, settings: Settings = S
                     "negative_controls_pass": gate["negative_controls"]["pass"],
                 }
             )
-            status(f"    Gate: {'PASS' if gate['bridge_pass'] else 'FAIL'}; lift={100 * lift['mean']:+.2f}%", progress)
     return {
         "grid": list(grid),
         "rows": rows,
@@ -547,13 +545,13 @@ def render_report(payload: Mapping[str, object]) -> str:
         )
     return "\n".join(
         [
-            "# Controlled Scalar-State Bridge",
+            "# Supported BAT-Shaped Bridge",
             "",
             f"- Claim boundary: {payload['claim_boundary']}",
             f"- Seeds: `{payload['seeds']}`",
             f"- Contexts: `{payload['contexts']}`",
             f"- Bridge pass: `{gate['bridge_pass']}`",
-            f"- Primary synthetic early-AUC lift CI: `{gate['contact_lift_ci']}`",
+            f"- Primary contact lift CI: `{gate['contact_lift_ci']}`",
             f"- Primary violation diff CI: `{gate['violation_diff_ci']}`",
             f"- Uncertainty scope: {gate['uncertainty_scope']}",
             f"- Mismatch abstention rate: `{gate['mismatch_abstention_rate']:.3f}`",

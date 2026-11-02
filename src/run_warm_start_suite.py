@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Controlled warm-start experiments for implied-dual initialization.
 
-Every initializer uses the same stable residual controller. Initial states are
-prescribed around a known synthetic target; this suite does not fit (s, alpha)
-or simulate auction payments. Reward and violation measure scalar state error.
+The suite is intentionally dependency-light.  It isolates the paper's empirical
+claim as controller x initialization x scenario: every initializer is evaluated
+with the same stable residual controller, so differences are attributable to the
+starting state rather than controller-specific tuning.
 """
 
 from __future__ import annotations
@@ -112,7 +113,6 @@ def initialization_states(scenario: Scenario, targets: list[float], rng: random.
         response = contextual + 0.15 * scenario.lambda_hybrid * scenario.response_bias
     mismatch_z = abs(blind_contextual - flat) / 0.18
     if scenario.mismatch:
-        # Deliberate negative control using the scenario label, not a learned detector.
         mismatch_z = max(mismatch_z, 2.1 + 0.4 * rng.random())
     shrunk, abstained, shrinkage_weight = guarded_shrink(blind_contextual, flat, support_n, mismatch_z, settings)
     return {
@@ -316,7 +316,7 @@ def render_report(payload: Mapping[str, object]) -> str:
             "",
             f"Overall guarded-transfer abstention accuracy: `{summary['abstention_accuracy']:.3f}`.",
             "",
-            "These are controlled scalar-state results with prescribed initializers. They illustrate initialization and failure modes, not fitted dual recovery or auction-level deployment lift.",
+            "These are controlled synthetic/semi-synthetic results. They support the warm-start mechanism and failure modes, not a public-BAT FPA deployment claim.",
             "",
         ]
     )

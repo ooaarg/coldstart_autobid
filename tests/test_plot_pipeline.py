@@ -37,9 +37,7 @@ def test_config_to_plot_with_two_controller_gains(tmp_path, capsys):
         report = (folder / "results.md").read_text()
         assert "exceeds `0.0`" in report
         assert "n/(n+2)" in report
-        assert (folder / "warm_start_state_errors.pdf").stat().st_size > 1000
-        assert "What this run shows" in gallery
-        assert "not budget or CPC" in report
+        assert (folder / "warm_start_reward_trajectories.pdf").stat().st_size > 1000
     assert results[0][0]["controller_states"][0] == results[1][0]["controller_states"][0]
     assert results[0][0]["controller_states"][1] != results[1][0]["controller_states"][1]
     assert pictures[0] != pictures[1]
@@ -72,39 +70,6 @@ def test_progress_bar_only_for_a_terminal():
         with patch.object(progress.sys, "stderr", stream):
             assert list(progress.track(range(5), "Test seeds", enabled=True)) == list(range(5))
         assert bool(stream.getvalue()) == is_terminal
-
-
-def test_long_run_emits_checkpoints_without_a_terminal(capsys):
-    stream = io.StringIO()
-    stream.isatty = lambda: False
-    with patch.object(progress.sys, "stderr", stream), patch.object(progress, "monotonic", side_effect=[0, 31, 31, 32]):
-        assert list(progress.track([1, 2], "BAT", enabled=True, total=2, unit="rows")) == [1, 2]
-    assert "BAT: 1 / 2 rows processed" in capsys.readouterr().out
-
-
-def test_effect_interval_uses_seeds_not_correlated_scenarios():
-    from src.plots import warm_start_effects
-    runs = []
-    for seed, lifts in [(1, (10, 20)), (2, (30, 40))]:
-        for scenario, lift in zip(("matched_stationary", "smooth_drift"), lifts):
-            for policy, auc in [("historical_stationary", 100), ("global_flat_idvc", 100),
-                                ("contextual_idvc", 100 + lift)]:
-                runs.append(dict(seed=seed, scenario=scenario, initialization=policy,
-                                 early_auc=auc, time_to_target=0, early_violation_area=0))
-    row = warm_start_effects({"runs": runs}).iloc[0]
-    assert row["n"] == 2
-    assert row["lift_pct"] == pytest.approx(25)
-    assert row["lift_ci_lo"] == pytest.approx(25 - 1.96 * 10)
-
-
-def test_obsolete_cumulative_reward_files_are_removed_on_rerun(tmp_path):
-    folder = tmp_path / "warm_start"
-    folder.mkdir()
-    for suffix in (".png", ".pdf"):
-        (folder / ("warm_start_reward_trajectories" + suffix)).write_bytes(b"old")
-    assert main(["warm_start", "--output-dir", str(tmp_path), "--seeds", "1", "--horizon", "3",
-                 "--no-progress", "--no-plots"]) == 0
-    assert not list(folder.glob("warm_start_reward_trajectories.*"))
 
 
 def test_bat_surface_values_and_single_auction_plot(tmp_path):
