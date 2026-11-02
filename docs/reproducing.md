@@ -1,8 +1,10 @@
 # Configuration and reproduction
 
 Use Python 3.10+ and install `requirements.txt`. Run commands from the repository
-root. The default `python -m experiments` runs warm start with the paper's
-100 seeds and 100 controller updates, then draws its plots.
+root. The default `python -m experiments` runs warm start with the reference
+100 seeds and 100 controller updates, then draws effect sizes and first-32-step absolute state errors.
+The [README](../README.md) records the model, every YAML parameter, and the
+current evidence boundaries.
 
 ## Change an experiment
 
@@ -47,7 +49,7 @@ python -m experiments bat_calibration --max-rows 2000
 Precedence is **CLI > custom YAML > repository YAML**. `--help` lists options.
 `plots: false` skips figures; `progress: false` suppresses stage messages and
 bars. Both also accept `--no-plots` / `--no-progress`. The final output location
-is always printed. Legacy per-task `--out`, `--report`, and BAT `--out-dir` still
+is always printed. Per-task `--out`, `--report`, and BAT `--out-dir` still
 work. Individual `experiments.*` entry points use the same pipeline.
 
 ## Reproduce the paper plots
@@ -55,17 +57,19 @@ work. Individual `experiments.*` entry points use the same pipeline.
 Set `tasks: [warm_start, bat_calibration]` and retain the
 checked-in parameters. Warm start generates `warm_start_effect_forest.pdf`;
 BAT generates `bat_selected_category_hour_dual_surfaces_clean.pdf`. These share
-the paper's plotting routines. Changing parameters reruns the experiment and
+the manuscript's plotting routines. Changing parameters reruns the experiment and
 replots its outputs, so the resulting figures are experimental variants.
 
-Add `supported_bridge` to run the experiment reported in the camera-ready's
-*Supported mechanism evidence* table and text. Its comparison and sensitivity
-plots are additional repository visualizations, not camera-ready figures.
+Add `supported_bridge` to run the controlled scalar-state diagnostic. It does
+not read BAT or fit a dual surface. Its comparison and sensitivity plots show
+conditional simulation results, not auction-level decision evidence.
 
 BAT surfaces are accumulated in the same CSV pass as calibration. Sparse cells
 are masked, and a panel explains when no category meets the paper's hour-support
 criteria. Small row-capped checks may therefore have no surface to display.
-The static method illustration is conceptual, so it is not regenerated per run.
+The static method illustration is conceptual; regenerate it with the paper
+artifact generator. Manuscript sources and published reference figures are outside the scope of
+code maintenance and must not be changed by this workflow.
 
 The JSON and detailed Markdown report are saved beside the figures. Reference
 artifacts in `experiments/results/` are preserved by the default output path.
@@ -104,3 +108,28 @@ Supplementary analysis remains under `src/`:
 identification diagnostics, and `generate_paper_artifacts` for the complete
 reference tables/figures. These tools retain their own `--help` interfaces.
 `python -m src.run_all` aliases the main configured pipeline.
+
+## Essential paper artifacts
+
+```bash
+python -m src.generate_paper_artifacts \
+  --bat experiments/results/bat_full_admissible.json \
+  --cold-start experiments/results/bat_cold_start_frontier_full.json \
+  --warm-start outputs/warm_start/results.json \
+  --bridge outputs/supported_bridge/results.json \
+  --out-dir outputs/paper
+```
+
+Run the two simulations first. This command reads existing JSON; it does not
+rerun experiments. It writes evidence tables, a model diagram, held-out proxy
+loss with the flexible reference, a seed-level effect forest, and state-error
+curves. It no longer emits the old cumulative-reward lines or legacy dashboards.
+The generator defaults to `outputs/paper/`; these are code-analysis outputs,
+not replacements for figures of the submitted manuscript. Data-only reruns
+also remove obsolete cumulative-reward files from their own output folder.
+Old local experiment-output plots are archived under `outputs/archive-2026-11-02/`.
+Original research figures under `experiments/results/figures/` have been restored.
+
+The full chronological BAT replay is separate from calibration and can be much
+more expensive. A capped calibration run is only a pipeline check; checking a
+saved full replay is not equivalent to rerunning that replay.

@@ -9,18 +9,14 @@ import math
 from pathlib import Path
 from typing import Any
 
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-import numpy as np
 import pandas as pd
 import seaborn as sns
 
-from src.plots import (
-    mean_ci, warm_start_effects, savefig, warm_start_curve_frame,
-    plot_warm_start_reward_trajectories, plot_warm_start_effect_forest,
-)
-
-from src.run_full_synthetic import CPC, dpsi_fpa, fit_contextual_theta, generate_base, psi_fpa, true_theta
+from src.plots import plot_bat_loss, plot_warm_start_errors, plot_warm_start_effect_forest, warm_start_effects
+from src.model_figure import plot_idvc_workflow_surface_panel
 
 
 MIN_BOOTSTRAP_CLUSTERS = 30
@@ -591,19 +587,6 @@ def synthetic_metrics(synth: dict[str, Any], question: str) -> dict[str, Any]:
     return {}
 
 
-def synthetic_experiment(synth: dict[str, Any], question: str) -> dict[str, Any]:
-    for exp in synth.get("experiments", []):
-        if exp.get("question") == question:
-            return exp
-    return {}
-
-
-def pct_reduction(old: float | None, new: float | None) -> float | None:
-    if old is None or new is None or old == 0:
-        return None
-    return 100.0 * (old - new) / old
-
-
 def core_evidence_table(bat: dict[str, Any], synth: dict[str, Any]) -> pd.DataFrame:
     fpa = bat["auctions"]["fpa"]
     vcg = bat["auctions"]["vcg"]
@@ -618,7 +601,7 @@ def core_evidence_table(bat: dict[str, Any], synth: dict[str, Any]) -> pd.DataFr
         [
             {
                 "claim": "BAT VCG proxy calibration",
-                "evidence": "23.86M rows; 5.72M usable",
+                "evidence": f"{vcg.get('rows_seen', 0):,} rows; {vcg.get('usable_rows', 0):,} usable",
                 "result": (
                     f"adm. TCL {fmt(vcg['flat_ols'].get('admissible', {}).get('admissible_tcl_mse'), 2)}"
                     f" -> {fmt(vcg['contextual_bins'].get('contextual_admissible_tcl_mse'), 2)}"
@@ -627,7 +610,7 @@ def core_evidence_table(bat: dict[str, Any], synth: dict[str, Any]) -> pd.DataFr
             },
             {
                 "claim": "BAT FPA proxy calibration",
-                "evidence": "9.47M rows; 51 contexts",
+                "evidence": f"{fpa.get('rows_seen', 0):,} rows; {fpa['contextual_bins'].get('bins_used', 0)} contexts",
                 "result": (
                     f"adm. TCL {fmt(fpa['flat_ols'].get('admissible', {}).get('admissible_tcl_mse'), 2)}"
                     f" -> {fmt(fpa['contextual_bins'].get('contextual_admissible_tcl_mse'), 2)}"
@@ -636,7 +619,7 @@ def core_evidence_table(bat: dict[str, Any], synth: dict[str, Any]) -> pd.DataFr
             },
             {
                 "claim": "FPA response layer",
-                "evidence": "9.45M ratio rows",
+                "evidence": f"{fpa_diag.get('ratio_sample_count', 0):,} ratio rows",
                 "result": f"proxy TCL {fmt(fpa_diag.get('proxy_fit', {}).get('tcl_mse'), 2)}",
                 "takeaway": f"ratio median {fmt(fpa_diag.get('y_over_contact_price_bin_median'), 3)}, p95 {fmt(fpa_diag.get('ratio_summary', {}).get('p95'), 3)}",
             },
@@ -672,633 +655,6 @@ def core_evidence_table(bat: dict[str, Any], synth: dict[str, Any]) -> pd.DataFr
             },
         ]
     )
-
-
-def plot_warm_start_constraint_trajectories(warm: dict[str, Any] | None, figures_dir: Path) -> None:
-    df = warm_start_curve_frame(warm, "constraint_violations")
-    if df.empty:
-        return
-    df = df[df["scenario"].isin(["abrupt_shift", "mismatched_prior", "hybrid_lambda_grid"])]
-    fig, axes = plt.subplots(1, 3, figsize=(7.4, 2.4), sharey=True)
-    for ax, scenario in zip(axes, ["abrupt_shift", "mismatched_prior", "hybrid_lambda_grid"]):
-        sub = df[df["scenario"] == scenario]
-        sns.lineplot(data=sub, x="step", y="value", hue="initialization", errorbar=None, ax=ax, linewidth=1.2)
-        ax.set_title(scenario.replace("_", " "))
-        ax.set_xlabel("controller update")
-        ax.set_ylabel("constraint gap")
-        if ax is not axes[-1]:
-            ax.get_legend().remove()
-    axes[-1].legend(fontsize=5, frameon=False, loc="upper right")
-    savefig(fig, "warm_start_constraint_trajectories", figures_dir)
-
-
-def plot_warm_start_heatmap(summary: pd.DataFrame, figures_dir: Path) -> None:
-    if summary.empty:
-        return
-    keep = summary[summary["initialization"].isin(["global_flat_idvc", "historical_stationary", "contextual_idvc", "response_idvc", "shrunk_idvc"])]
-    pivot = keep.pivot(index="scenario", columns="initialization", values="early_auc_lift_vs_historical")
-    fig, ax = plt.subplots(figsize=(6.5, 2.8))
-    sns.heatmap(pivot, annot=True, fmt=".2f", cmap="vlag", center=0.0, linewidths=0.4, ax=ax, cbar_kws={"label": "Early-AUC lift"})
-    ax.set_title("Initialization effect relative to historical stationary reuse")
-    ax.set_xlabel("")
-    ax.set_ylabel("")
-    savefig(fig, "warm_start_initialization_heatmap", figures_dir)
-
-
-def effect_against(
-    warm: dict[str, Any] | None,
-    scenario: str,
-    variant: str,
-    comparator_mode: str,
-) -> tuple[float | None, float | None, float | None]:
-    if not warm:
-        return None, None, None
-    by_key: dict[tuple[int, str], dict[str, Any]] = {}
-    for run in warm.get("runs", []):
-        if isinstance(run, dict) and run.get("scenario") == scenario:
-            by_key[(int(run.get("seed")), str(run.get("initialization")))] = run
-    vals: list[float] = []
-    for seed in sorted({key[0] for key in by_key}):
-        treated = by_key.get((seed, variant))
-        if treated is None:
-            continue
-        if comparator_mode == "best_baseline":
-            candidates = [by_key.get((seed, name)) for name in ["historical_stationary", "global_flat_idvc"]]
-            candidates = [item for item in candidates if item is not None]
-            if not candidates:
-                continue
-            comparator = max(candidates, key=lambda item: float(item.get("early_auc", 0.0)))
-        else:
-            comparator = by_key.get((seed, comparator_mode))
-            if comparator is None:
-                continue
-        comp_auc = float(comparator.get("early_auc", 0.0))
-        if comp_auc > 0:
-            vals.append(100.0 * (float(treated.get("early_auc", 0.0)) - comp_auc) / comp_auc)
-    return mean_ci(vals)
-
-
-def plot_mechanism_boundary_panel(
-    warm: dict[str, Any] | None,
-    bat_summary: pd.DataFrame,
-    cold_start: pd.DataFrame,
-    frontier_gate: pd.DataFrame,
-    frontier_bootstrap: pd.DataFrame,
-    figures_dir: Path,
-) -> None:
-    fig, axes = plt.subplots(1, 3, figsize=(7.25, 2.45), gridspec_kw={"width_ratios": [1.0, 0.9, 1.2]})
-
-    rows = []
-    for variant, label in [("contextual_idvc", "blind contextual"), ("response_idvc", "response-aware")]:
-        center, lo, hi = effect_against(warm, "fpa_blind_vs_response", variant, "best_baseline")
-        rows.append((label, center, lo, hi))
-    x = np.arange(len(rows))
-    centers = np.array([row[1] if row[1] is not None else 0.0 for row in rows])
-    lows = np.array([row[2] if row[2] is not None else 0.0 for row in rows])
-    highs = np.array([row[3] if row[3] is not None else 0.0 for row in rows])
-    axes[0].bar(x, centers, color=["#b55454", "#2a9d55"], width=0.58)
-    axes[0].errorbar(x, centers, yerr=np.vstack([centers - lows, highs - centers]), fmt="none", color="#333333", capsize=3, linewidth=0.9)
-    axes[0].axhline(0.0, color="#555555", lw=0.8, ls="--")
-    axes[0].set_xticks(x)
-    axes[0].set_xticklabels([row[0] for row in rows], rotation=12)
-    axes[0].set_ylabel("Early-AUC lift (%)")
-    axes[0].set_title("(a) FPA response")
-
-    neg = warm_start_negative_transfer_table(warm)
-    mismatch_neg = float(neg.loc[neg["scenario"] == "mismatched_prior", "negative_transfer_rate"].iloc[0]) if not neg.empty and any(neg["scenario"] == "mismatched_prior") else 0.0
-    summary = warm_start_summary_table(warm)
-    abstain = 0.0
-    if not summary.empty:
-        sub = summary[(summary["scenario"] == "mismatched_prior") & (summary["initialization"] == "shrunk_idvc")]
-        if not sub.empty:
-            abstain = float(sub["abstention_rate"].iloc[0])
-    axes[1].bar([0, 1], [mismatch_neg, abstain], color=["#b55454", "#2a9d55"], width=0.55)
-    axes[1].set_xticks([0, 1])
-    axes[1].set_xticklabels(["blind\nnegative", "guard\nabstains"])
-    axes[1].set_ylim(0, 1.05)
-    axes[1].set_ylabel("rate")
-    axes[1].set_title("(b) mismatch guard")
-
-    boundary_rows = []
-    for auction in ["FPA", "VCG"]:
-        row = bat_summary[bat_summary["auction"] == auction]
-        if not row.empty:
-            flat_value = row["flat_admissible_tcl"].iloc[0]
-            ctx_value = row["contextual_admissible_tcl"].iloc[0]
-            if flat_value is not None and ctx_value is not None and float(flat_value) > 0:
-                flat = float(flat_value)
-                ctx = float(ctx_value)
-                boundary_rows.append((auction, "TCL reduction", 100.0 * (flat - ctx) / flat))
-        if not cold_start.empty:
-            gate = frontier_gate[frontier_gate["auction"] == auction] if not frontier_gate.empty else pd.DataFrame()
-            boot = frontier_bootstrap[
-                (frontier_bootstrap["auction"] == auction)
-                & (frontier_bootstrap["policy"] == PRIMARY_FRONTIER_POLICY)
-            ] if not frontier_bootstrap.empty else pd.DataFrame()
-            if not gate.empty and bool(gate["unchanged_bat_pass"].iloc[0]) and not boot.empty:
-                value = boot["contact_lift_mean"].iloc[0]
-                if isinstance(value, (float, int)):
-                    boundary_rows.append((auction, "gated lift", 100.0 * float(value)))
-            else:
-                boundary_rows.append((auction, "boundary only", 0.0))
-    labels = [f"{auction}\n{name}" for auction, name, _ in boundary_rows]
-    values = [value for _, _, value in boundary_rows]
-    colors = ["#2a9d55" if value >= 0 else "#b55454" for value in values]
-    axes[2].bar(np.arange(len(values)), values, color=colors, width=0.6)
-    axes[2].axhline(0.0, color="#555555", lw=0.8, ls="--")
-    axes[2].set_xticks(np.arange(len(values)))
-    axes[2].set_xticklabels(labels)
-    axes[2].set_ylabel("effect vs baseline (%)")
-    axes[2].set_title("(c) public BAT boundary")
-    axes[2].text(0.5, 0.03, "lift shown only if gate passes", transform=axes[2].transAxes, ha="center", va="bottom", fontsize=6)
-    savefig(fig, "mechanism_boundary_panel", figures_dir)
-
-
-def plot_idvc_workflow_surface_panel(figures_dir: Path) -> None:
-    # Keep the workflow legible at column width without spending vertical space
-    # on a large gap between its two rows.
-    fig, ax = plt.subplots(figsize=(3.35, 1.38))
-    ax.set_xlim(0, 1)
-    ax.set_ylim(0.08, 0.99)
-    ax.axis("off")
-
-    def box(
-        x: float,
-        y: float,
-        w: float,
-        h: float,
-        text: str,
-        face: str,
-        edge: str = "#4b5563",
-    ) -> None:
-        patch = mpatches.FancyBboxPatch(
-            (x, y),
-            w,
-            h,
-            boxstyle="round,pad=0.02,rounding_size=0.018",
-            linewidth=0.8,
-            edgecolor=edge,
-            facecolor=face,
-        )
-        ax.add_patch(patch)
-        ax.text(x + w / 2, y + h / 2, text, ha="center", va="center", fontsize=6.7)
-
-    def arrow(start: tuple[float, float], end: tuple[float, float]) -> None:
-        ax.annotate(
-            "",
-            xy=end,
-            xytext=start,
-            arrowprops={"arrowstyle": "-|>", "lw": 0.9, "color": "#4b5563", "shrinkA": 2, "shrinkB": 2},
-        )
-
-    box(0.02, 0.58, 0.25, 0.21, "historical logs\n$(z_i,f_i,Y_i)$", "#edf2f7")
-    box(0.38, 0.58, 0.25, 0.21, "fit admissible\n$\\hat\\Theta(z)$", "#e8f3ec")
-    box(0.73, 0.58, 0.25, 0.21, "dual surface\n$s>0,\\;0\\leq\\alpha\\leq1$", "#e8f3ec")
-    box(0.02, 0.10, 0.25, 0.21, "new ad\n$(z_1,f_1)$", "#fff3df")
-    box(0.38, 0.10, 0.25, 0.21, "margin\n$\\hat m_1=f_1^\\top\\hat\\Theta(z_1)$", "#fff3df")
-    box(0.73, 0.10, 0.25, 0.21, "first bid\n$\\hat b_1$ or $\\hat\\phi_z^{-1}(\\hat m_1)$", "#f2ecf8")
-    arrow((0.27, 0.685), (0.38, 0.685))
-    arrow((0.63, 0.685), (0.73, 0.685))
-    arrow((0.85, 0.58), (0.54, 0.31))
-    arrow((0.27, 0.205), (0.38, 0.205))
-    arrow((0.63, 0.205), (0.73, 0.205))
-    ax.text(0.02, 0.97, "Cold-start initialization path", fontsize=8.5, weight="bold", va="top")
-    fig.tight_layout(pad=0.2)
-    figures_dir.mkdir(parents=True, exist_ok=True)
-    # Crop to the artists rather than the full Matplotlib canvas.  This removes
-    # the otherwise visible strip below the lower row when embedded in LaTeX.
-    fig.savefig(
-        figures_dir / "idvc_workflow_surface_panel.png",
-        dpi=220,
-        bbox_inches="tight",
-        pad_inches=0.015,
-    )
-    fig.savefig(
-        figures_dir / "idvc_workflow_surface_panel.pdf",
-        bbox_inches="tight",
-        pad_inches=0.015,
-    )
-    plt.close(fig)
-
-
-def plot_warm_start_fpa_response(summary: pd.DataFrame, figures_dir: Path) -> None:
-    if summary.empty:
-        return
-    sub = summary[
-        summary["scenario"].isin(["fpa_blind_vs_response", "hybrid_lambda_grid"])
-        & summary["initialization"].isin(["contextual_idvc", "response_idvc", "shrunk_idvc"])
-    ]
-    if sub.empty:
-        return
-    fig, ax = plt.subplots(figsize=(4.8, 2.7))
-    sns.barplot(data=sub, x="scenario", y="early_auc_lift_vs_historical", hue="initialization", ax=ax)
-    ax.axhline(0.0, color="black", linewidth=0.7)
-    ax.set_title("Response-aware initialization in non-truthful settings")
-    ax.set_xlabel("")
-    ax.set_ylabel("Early-AUC lift vs historical")
-    ax.tick_params(axis="x", rotation=12)
-    ax.legend(frameon=False, fontsize=6)
-    savefig(fig, "warm_start_fpa_response_ablation", figures_dir)
-
-
-def plot_warm_start_mismatch(warm: dict[str, Any] | None, figures_dir: Path) -> None:
-    neg = warm_start_negative_transfer_table(warm)
-    summary = warm_start_summary_table(warm)
-    if neg.empty or summary.empty:
-        return
-    fig, axes = plt.subplots(1, 2, figsize=(6.2, 2.7))
-    sns.barplot(data=neg, x="scenario", y="negative_transfer_rate", ax=axes[0], color="#6c8ebf")
-    axes[0].set_title("Blind contextual negative transfer")
-    axes[0].set_xlabel("")
-    axes[0].set_ylabel("rate")
-    axes[0].tick_params(axis="x", rotation=35)
-    sub = summary[summary["initialization"] == "shrunk_idvc"]
-    sns.barplot(data=sub, x="scenario", y="abstention_rate", ax=axes[1], color="#82a87c")
-    axes[1].set_title("Guarded shrinkage abstention")
-    axes[1].set_xlabel("")
-    axes[1].set_ylabel("rate")
-    axes[1].tick_params(axis="x", rotation=35)
-    savefig(fig, "warm_start_mismatch_guard", figures_dir)
-
-
-def plot_bat_tcl(summary: pd.DataFrame, figures_dir: Path) -> None:
-    plot_df = summary.melt(
-        id_vars=["auction"],
-        value_vars=["flat_proxy_tcl", "flat_admissible_tcl", "contextual_proxy_tcl", "contextual_admissible_tcl"],
-        var_name="model",
-        value_name="TCL",
-    )
-    fig, ax = plt.subplots(figsize=(5.2, 3.2))
-    sns.barplot(data=plot_df, x="auction", y="TCL", hue="model", ax=ax)
-    ax.set_yscale("log")
-    ax.set_title("BAT calibration loss")
-    ax.set_ylabel("TCL MSE, lower better (log)")
-    ax.set_xlabel("")
-    savefig(fig, "bat_tcl_bar", figures_dir)
-
-
-def plot_gram(categories: pd.DataFrame, summary: pd.DataFrame, figures_dir: Path) -> None:
-    fig, ax = plt.subplots(figsize=(5.2, 3.2))
-    data = categories.dropna(subset=["gram_condition"]).copy()
-    data = data[data["gram_condition"] > 0]
-    if len(data):
-        sns.histplot(data=data, x="gram_condition", hue="auction", bins=30, log_scale=True, ax=ax)
-    else:
-        ax.text(0.5, 0.5, "No category gram diagnostics", ha="center", va="center")
-    ax.set_title("Context rank diagnostics")
-    ax.set_xlabel("Gram condition number (log scale)")
-    savefig(fig, "bat_gram_condition_hist", figures_dir)
-
-
-def plot_ratio_hist(bat: dict[str, Any], figures_dir: Path) -> None:
-    fpa = bat["auctions"].get("fpa", {})
-    diag = fpa.get("fpa_response_proxy_diagnostics", {})
-    hist = diag.get("ratio_histogram", {}) if isinstance(diag, dict) else {}
-    labels = list(hist.keys())
-    counts = list(hist.values())
-    fig, ax = plt.subplots(figsize=(6.0, 3.2))
-    ax.bar(labels, counts)
-    ax.set_yscale("log")
-    ax.set_title("FPA response proxy distribution")
-    ax.set_ylabel("Rows (log scale)")
-    ax.set_xlabel("y / contact_price_bin")
-    ax.tick_params(axis="x", rotation=35)
-    savefig(fig, "fpa_response_ratio_hist", figures_dir)
-
-
-def plot_category_tcl(categories: pd.DataFrame, figures_dir: Path) -> None:
-    fig, ax = plt.subplots(figsize=(5.2, 3.2))
-    data = categories.dropna(subset=["tcl_mse"]).copy()
-    data = data[data["tcl_mse"] > 0]
-    if len(data):
-        sns.boxplot(data=data, x="auction", y="tcl_mse", ax=ax)
-        ax.set_yscale("log")
-    else:
-        ax.text(0.5, 0.5, "No category TCL diagnostics", ha="center", va="center")
-    ax.set_title("Category-level TCL distribution")
-    ax.set_ylabel("TCL MSE (log scale)")
-    ax.set_xlabel("")
-    savefig(fig, "category_tcl_distribution", figures_dir)
-
-
-def plot_synthetic_dashboard(synth_df: pd.DataFrame, figures_dir: Path) -> None:
-    fig, ax = plt.subplots(figsize=(7.0, 3.5))
-    status = synth_df["status"].map({"PASS": 1, "CHECK": 0}).fillna(0)
-    ax.bar(synth_df["question"], status)
-    ax.set_ylim(0, 1.2)
-    ax.set_yticks([0, 1])
-    ax.set_yticklabels(["check", "pass"])
-    ax.set_title("Synthetic validation checks")
-    ax.set_xlabel("")
-    savefig(fig, "synthetic_q_dashboard", figures_dir)
-
-
-def plot_main_results_panel(bat: dict[str, Any], summary: pd.DataFrame, synth_df: pd.DataFrame, figures_dir: Path) -> None:
-    fig, axes = plt.subplots(1, 3, figsize=(7.1, 2.35), gridspec_kw={"width_ratios": [1.0, 1.15, 1.0]})
-    plot_df = summary.melt(
-        id_vars=["auction"],
-        value_vars=["flat_admissible_tcl", "contextual_admissible_tcl"],
-        var_name="model",
-        value_name="TCL",
-    )
-    sns.barplot(data=plot_df, x="auction", y="TCL", hue="model", ax=axes[0], palette=["#808080", "#2f7ebc"])
-    axes[0].set_yscale("log")
-    axes[0].set_title("(a) BAT TCL")
-    axes[0].set_xlabel("")
-    axes[0].set_ylabel("MSE")
-    axes[0].legend(fontsize=6, frameon=False, loc="upper left")
-
-    fpa = bat["auctions"].get("fpa", {})
-    hist = fpa.get("fpa_response_proxy_diagnostics", {}).get("ratio_histogram", {})
-    axes[1].bar(list(hist.keys()), list(hist.values()), color="#d97b29")
-    axes[1].set_yscale("log")
-    axes[1].set_title("(b) FPA response")
-    axes[1].set_xlabel("y / price bin")
-    axes[1].set_ylabel("rows")
-    axes[1].tick_params(axis="x", labelrotation=45, labelsize=6)
-
-    status = synth_df["status"].map({"PASS": 1, "CHECK": 0}).fillna(0)
-    colors = ["#2a9d55" if value == 1 else "#b55454" for value in status]
-    axes[2].bar(synth_df["question"], status, color=colors)
-    axes[2].set_ylim(0, 1.2)
-    axes[2].set_title("(c) Q checks")
-    axes[2].set_xlabel("")
-    axes[2].set_yticks([0, 1])
-    axes[2].set_yticklabels(["check", "pass"])
-    axes[2].tick_params(axis="x", labelrotation=90, labelsize=6)
-    savefig(fig, "main_results_panel", figures_dir)
-
-
-def plot_calibrated_surfaces_panel(
-    bat: dict[str, Any],
-    summary: pd.DataFrame,
-    synth: dict[str, Any],
-    figures_dir: Path,
-) -> None:
-    fig, axes = plt.subplots(1, 3, figsize=(7.2, 2.45), gridspec_kw={"width_ratios": [1.0, 1.08, 1.08]})
-
-    row_df = summary.copy()
-    x = np.arange(len(row_df))
-    rows_seen = row_df["rows_seen"].astype(float).to_numpy() / 1_000_000.0
-    usable_rows = row_df["usable_rows"].astype(float).to_numpy() / 1_000_000.0
-    axes[0].bar(x - 0.17, rows_seen, width=0.34, color="#c9c9c9", label="scanned")
-    axes[0].bar(x + 0.17, usable_rows, width=0.34, color="#4c78a8", label="usable")
-    for i, row in row_df.iterrows():
-        gain = pct_reduction(row.get("flat_admissible_tcl"), row.get("contextual_admissible_tcl"))
-        axes[0].annotate(
-            f"-{fmt(gain, 1)}% TCL",
-            xy=(i, max(rows_seen[i], usable_rows[i])),
-            xytext=(0, 4),
-            textcoords="offset points",
-            ha="center",
-            fontsize=7,
-        )
-    axes[0].set_title("(a) BAT support and TCL gain")
-    axes[0].set_xticks(x)
-    axes[0].set_xticklabels(row_df["auction"])
-    axes[0].set_ylabel("rows (M)")
-    axes[0].set_ylim(0, max(rows_seen.max(), usable_rows.max()) * 1.22)
-    axes[0].legend(fontsize=6, frameon=False, loc="upper left")
-
-    seed = int(synth.get("seed", 20260513))
-    rows = generate_base(3600, seed)
-    y_response = [r.bid_fpa + r.psi_fpa for r in rows]
-    estimates = fit_contextual_theta(rows, y_response, bins=10)
-    bins = np.linspace(0.0, 1.0, 11)
-    centers = 0.5 * (bins[:-1] + bins[1:])
-    est_s = []
-    est_alpha = []
-    for lo, hi in zip(bins[:-1], bins[1:]):
-        idx = [i for i, r in enumerate(rows) if lo <= r.z < hi or (hi == 1.0 and r.z == 1.0)]
-        est_s.append(float(np.mean([estimates[i][0] for i in idx])))
-        est_alpha.append(float(np.mean([estimates[i][1] for i in idx])))
-    z_grid = np.linspace(0.0, 1.0, 120)
-    true_s = np.array([true_theta(float(z))[0] for z in z_grid])
-    true_alpha = np.array([true_theta(float(z))[1] for z in z_grid])
-    axes[1].plot(z_grid, true_s, color="#2f7ebc", lw=1.4, label="true s")
-    axes[1].plot(z_grid, true_alpha, color="#d97b29", lw=1.4, label="true alpha")
-    axes[1].scatter(centers, est_s, color="#2f7ebc", s=14, marker="o", label="fit s")
-    axes[1].scatter(centers, est_alpha, color="#d97b29", s=14, marker="s", label="fit alpha")
-    axes[1].set_title("(b) implied dual surface")
-    axes[1].set_xlabel("context z")
-    axes[1].set_ylabel("dual coefficient")
-    axes[1].legend(fontsize=6, frameon=False, ncol=2, loc="lower left")
-
-    z = np.linspace(0.0, 1.0, 60)
-    bid_max = max(1.0, float(np.quantile([r.bid_fpa for r in rows], 0.98)))
-    b = np.linspace(0.0, bid_max, 60)
-    zz, bb = np.meshgrid(z, b)
-    phi = bb + np.vectorize(psi_fpa)(bb, zz)
-    surface = axes[2].contourf(zz, bb, phi, levels=14, cmap="viridis")
-    axes[2].contour(zz, bb, phi, levels=7, colors="white", linewidths=0.35, alpha=0.8)
-    q01 = synthetic_metrics(synth, "Q01")
-    min_margin = q01.get("fpa_min_derivative_margin")
-    axes[2].text(
-        0.02,
-        0.96,
-        f"min dphi/db = {fmt(min_margin, 3)}",
-        transform=axes[2].transAxes,
-        va="top",
-        fontsize=7,
-        color="white",
-        bbox={"facecolor": "#222222", "alpha": 0.35, "pad": 1.5, "edgecolor": "none"},
-    )
-    axes[2].set_title("(c) response operator")
-    axes[2].set_xlabel("context z")
-    axes[2].set_ylabel("bid b")
-    cbar = fig.colorbar(surface, ax=axes[2], fraction=0.046, pad=0.02)
-    cbar.set_label("phi_z(b)", fontsize=7)
-    cbar.ax.tick_params(labelsize=6)
-
-    savefig(fig, "calibrated_surfaces_panel", figures_dir)
-
-
-def plot_experimental_story_panel(bat: dict[str, Any], summary: pd.DataFrame, synth: dict[str, Any], figures_dir: Path) -> None:
-    fig, axes = plt.subplots(1, 3, figsize=(7.2, 2.45), gridspec_kw={"width_ratios": [1.05, 1.1, 1.0]})
-
-    fpa = bat["auctions"]["fpa"]
-    vcg = bat["auctions"]["vcg"]
-    fpa_proxy = fpa.get("fpa_response_proxy_diagnostics", {}).get("proxy_fit", {}).get("tcl_mse")
-    x = np.array([0, 1, 2])
-    series = {
-        "FPA": [
-            fpa["flat_ols"].get("admissible", {}).get("admissible_tcl_mse"),
-            fpa["contextual_bins"].get("contextual_admissible_tcl_mse"),
-            fpa_proxy,
-        ],
-        "VCG": [
-            vcg["flat_ols"].get("admissible", {}).get("admissible_tcl_mse"),
-            vcg["contextual_bins"].get("contextual_admissible_tcl_mse"),
-            None,
-        ],
-    }
-    colors = {"FPA": "#d97b29", "VCG": "#2f7ebc"}
-    for name, values in series.items():
-        xs = [x[i] for i, value in enumerate(values) if value is not None]
-        ys = [value for value in values if value is not None]
-        axes[0].plot(xs, ys, marker="o", color=colors[name], label=name, lw=1.5)
-        for xi, yi in zip(xs, ys):
-            axes[0].annotate(
-                fmt(yi, 1),
-                xy=(xi, yi),
-                xytext=(0, -10 if name == "FPA" else 5),
-                textcoords="offset points",
-                ha="center",
-                fontsize=6,
-                color=colors[name],
-            )
-    axes[0].set_yscale("log")
-    axes[0].set_xticks(x)
-    axes[0].set_xticklabels(["flat\nadm.", "context\nadm.", "proxy\nresponse"], rotation=0)
-    axes[0].set_title("(a) calibration path")
-    axes[0].set_ylabel("TCL MSE, lower better")
-    axes[0].legend(fontsize=6, frameon=False, loc="lower right")
-
-    q02 = synthetic_metrics(synth, "Q02")
-    q04 = synthetic_metrics(synth, "Q04")
-    diag_labels = ["raw\nsmile", "resp.\nsmile", "oracle\nrank", "smooth\nrank", "alt.\nrank"]
-    diag_values = [
-        q04.get("raw_contextual_smile_energy"),
-        q04.get("contextual_response_smile_energy"),
-        max(1e-6, q02.get("oracle_rank_ratio_median", 0.0)),
-        q02.get("heavy_noise_smoothed_rank_ratio_median"),
-        q02.get("alternative_rank_ratio_median"),
-    ]
-    diag_colors = ["#b55454", "#2a9d55", "#2a9d55", "#8ab17d", "#b55454"]
-    axes[1].bar(np.arange(len(diag_labels)), diag_values, color=diag_colors)
-    axes[1].axvline(1.5, color="#666666", lw=0.7, ls="--")
-    axes[1].set_yscale("log")
-    axes[1].set_xticks(np.arange(len(diag_labels)))
-    axes[1].set_xticklabels(diag_labels, fontsize=7)
-    axes[1].set_title("(b) diagnostics")
-    axes[1].set_ylabel("diagnostic score (log)")
-
-    q09 = synthetic_experiment(synth, "Q09")
-    q10 = synthetic_metrics(synth, "Q10")
-    policies = q09.get("policies", {}) if isinstance(q09, dict) else {}
-    default = policies.get("default", {})
-    response = policies.get("response_idvc", {})
-    ratios = [
-        response.get("initial_distance", 0.0) / max(1e-12, default.get("initial_distance", 1.0)),
-        response.get("time_to_target", 0.0) / max(1e-12, default.get("time_to_target", 1.0)),
-        q10.get("related_eb_regret_ratio"),
-        q10.get("mismatched_eb_regret_ratio"),
-    ]
-    labels = ["init\ndist.", "time\ntarget", "EB\nrel.", "EB\nmis."]
-    bar_colors = ["#2a9d55" if value <= 1.0 else "#b55454" for value in ratios]
-    axes[2].bar(np.arange(len(labels)), ratios, color=bar_colors)
-    axes[2].axhline(1.0, color="#555555", lw=0.8, ls="--")
-    axes[2].set_ylim(0.0, max(1.35, 1.1 * max(ratios)))
-    axes[2].set_xticks(np.arange(len(labels)))
-    axes[2].set_xticklabels(labels, fontsize=7)
-    axes[2].set_title("(c) deployment effect")
-    axes[2].set_ylabel("ratio to baseline")
-    for i, value in enumerate(ratios):
-        label = f"{value:.1e}" if value < 0.005 else fmt(value, 2)
-        axes[2].text(i, max(value + 0.04, 0.05), label, ha="center", fontsize=7)
-
-    savefig(fig, "experimental_story_panel", figures_dir)
-
-
-def plot_support_stratified_heldout(support: pd.DataFrame, figures_dir: Path) -> None:
-    if support.empty:
-        return
-
-    bucket_order = ["0", "1-9", "10-99", "100-499", "500+"]
-    labels = {
-        "category_price_mean": "cat-price mean",
-        "flat_idvc": "flat IDVC",
-        "contextual_idvc": "contextual IDVC",
-        "flat_unconstrained_affine_proxy": "flat proxy",
-        "contextual_unconstrained_affine_proxy": "context proxy",
-        "flat_admissible_idvc": "flat adm. IDVC",
-        "contextual_admissible_idvc": "context adm. IDVC",
-        "fpa_response_proxy": "FPA proxy",
-    }
-    colors = {
-        "category_price_mean": "#6f6f6f",
-        "flat_idvc": "#2f7ebc",
-        "contextual_idvc": "#2a9d55",
-        "flat_unconstrained_affine_proxy": "#8aa6c1",
-        "contextual_unconstrained_affine_proxy": "#8ab17d",
-        "flat_admissible_idvc": "#2f7ebc",
-        "contextual_admissible_idvc": "#2a9d55",
-        "fpa_response_proxy": "#d97b29",
-    }
-    markers = {
-        "category_price_mean": "o",
-        "flat_idvc": "s",
-        "contextual_idvc": "D",
-        "flat_unconstrained_affine_proxy": "s",
-        "contextual_unconstrained_affine_proxy": "D",
-        "flat_admissible_idvc": "P",
-        "contextual_admissible_idvc": "X",
-        "fpa_response_proxy": "^",
-    }
-
-    fig, axes = plt.subplots(1, 2, figsize=(7.2, 2.75), sharey=True)
-    for ax, auction in zip(axes, ["FPA", "VCG"]):
-        part = support[support["auction"] == auction].copy()
-        for model in [
-            "category_price_mean",
-            "flat_unconstrained_affine_proxy",
-            "contextual_unconstrained_affine_proxy",
-            "flat_admissible_idvc",
-            "contextual_admissible_idvc",
-            "fpa_response_proxy",
-        ]:
-            rows = part[part["model"] == model]
-            if rows.empty:
-                continue
-            xs = [bucket_order.index(str(bucket)) for bucket in rows["support_bucket"]]
-            ys = rows["test_tcl"].astype(float).to_numpy()
-            sizes = 18 + 9 * np.log10(np.maximum(1.0, rows["test_rows"].astype(float).to_numpy()))
-            ax.plot(xs, ys, color=colors[model], lw=1.2, alpha=0.85, label=labels[model])
-            ax.scatter(
-                xs,
-                ys,
-                s=sizes,
-                color=colors[model],
-                marker=markers[model],
-                edgecolor="white",
-                linewidth=0.45,
-                zorder=3,
-            )
-        ax.set_title(auction)
-        ax.set_xticks(range(len(bucket_order)))
-        ax.set_xticklabels(bucket_order)
-        ax.set_xlabel("train support")
-        ax.grid(True, axis="y", which="both", alpha=0.35)
-    axes[0].set_yscale("log")
-    axes[0].set_ylabel("held-out TCL MSE, lower better")
-
-    legend_models = [
-        model
-        for model in [
-            "category_price_mean",
-            "flat_unconstrained_affine_proxy",
-            "contextual_unconstrained_affine_proxy",
-            "flat_admissible_idvc",
-            "contextual_admissible_idvc",
-            "fpa_response_proxy",
-        ]
-        if model in set(support["model"])
-    ]
-    legend_handles = [
-        plt.Line2D(
-            [0],
-            [0],
-            color=colors[model],
-            marker=markers[model],
-            lw=1.2,
-            markersize=4,
-            label=labels[model],
-        )
-        for model in legend_models
-    ]
-    axes[1].legend(handles=legend_handles, fontsize=6, frameon=False, loc="upper right")
-    fig.tight_layout()
-    savefig(fig, "bat_support_stratified_heldout", figures_dir)
 
 
 def render_report(
@@ -1358,15 +714,15 @@ def render_report(
         "",
         markdown_table(frontier_support) if len(frontier_support) else "No BAT frontier support replay was supplied.",
         "",
-        "## Supported BAT-Shaped Bridge Gate",
+        "## Controlled Scalar-State Bridge Gate",
         "",
         markdown_table(bridge_gate) if len(bridge_gate) else "No supported bridge gate was supplied.",
         "",
-        "## Supported BAT-Shaped Bridge Sensitivity",
+        "## Controlled Scalar-State Bridge Sensitivity",
         "",
         markdown_table(bridge_sensitivity) if len(bridge_sensitivity) else "No supported bridge sensitivity grid was supplied.",
         "",
-        "## Supported BAT-Shaped Bridge Summary",
+        "## Controlled Scalar-State Bridge Summary",
         "",
         markdown_table(bridge_summary) if len(bridge_summary) else "No supported bridge summary was supplied.",
         "",
@@ -1404,7 +760,7 @@ def render_report(
         "",
         "## Paper Use",
         "",
-        "Use `idvc_workflow_surface_panel.pdf` as the compact cold-start workflow visual and `warm_start_effect_forest.pdf` as the main warm-start evidence. Keep `mechanism_boundary_panel.pdf` as a diagnostic or appendix visual unless space permits.",
+        "Use `idvc_workflow_surface_panel.pdf` as the compact cold-start workflow visual and `warm_start_effect_forest.pdf` as the main warm-start evidence. Use `warm_start_state_errors.pdf` to inspect early convergence and transfer failures; `bat_calibration_loss.pdf` compares held-out loss including the flexible reference.",
         "",
     ]
     out.write_text("\n".join(lines), encoding="utf-8")
@@ -1412,12 +768,12 @@ def render_report(
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--bat", default="experiments/results/bat_full.json")
+    parser.add_argument("--bat", default="experiments/results/bat_full_admissible.json")
     parser.add_argument("--cold-start")
     parser.add_argument("--synthetic", help="Optional supplementary synthetic-diagnostic JSON.")
     parser.add_argument("--warm-start", default="experiments/results/warm_start_suite.json")
     parser.add_argument("--bridge", default="experiments/results/supported_bridge.json")
-    parser.add_argument("--out-dir", default="experiments/results")
+    parser.add_argument("--out-dir", default="outputs/paper", help="Analysis outputs; preserve submitted-paper reference figures")
     args = parser.parse_args()
 
     out_dir = Path(args.out_dir)
@@ -1503,22 +859,11 @@ def main() -> None:
     if len(warm_effects):
         write_table(warm_effects, "warm_start_main_effects", tables_dir)
 
-    plot_bat_tcl(summary, figures_dir)
-    plot_gram(categories, summary, figures_dir)
-    plot_ratio_hist(bat, figures_dir)
-    plot_category_tcl(categories, figures_dir)
+    # Generate only the model and the main calibration/initialization diagnostics.
     plot_idvc_workflow_surface_panel(figures_dir)
-    if synth:
-        plot_calibrated_surfaces_panel(bat, summary, synth, figures_dir)
-        plot_experimental_story_panel(bat, summary, synth, figures_dir)
-    plot_support_stratified_heldout(support_heldout, figures_dir)
-    plot_warm_start_reward_trajectories(warm, figures_dir)
-    plot_warm_start_constraint_trajectories(warm, figures_dir)
-    plot_warm_start_heatmap(warm_start, figures_dir)
+    plot_bat_loss(bat, figures_dir)
+    plot_warm_start_errors(warm, figures_dir)
     plot_warm_start_effect_forest(warm_effect_numeric, figures_dir)
-    plot_mechanism_boundary_panel(warm, summary, cold_start, frontier_gate, frontier_bootstrap, figures_dir)
-    plot_warm_start_fpa_response(warm_start, figures_dir)
-    plot_warm_start_mismatch(warm, figures_dir)
 
     render_report(
         summary,
@@ -1546,6 +891,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    import argparse
-
     main()

@@ -2,7 +2,7 @@
 """Dependency-light full synthetic experiment suite.
 
 This script extends the smoke test into a reviewer-facing synthetic and
-semi-synthetic workbench.  It intentionally uses only the Python standard
+synthetic workbench.  It intentionally uses only the Python standard
 library so it can run in a fresh checkout.
 """
 
@@ -721,7 +721,7 @@ def build_report(result: dict[str, object]) -> str:
             "",
             "## Notes",
             "",
-            "- This is synthetic and semi-synthetic evidence only; it validates mechanics, diagnostics, and failure modes, not BAT-scale empirical claims.",
+            "- This is controlled synthetic evidence only; it validates mechanics, diagnostics, and failure modes, not BAT-scale empirical claims.",
             "- Censoring and generated-regressor modules use lightweight proxies rather than full survival or bootstrap estimators.",
             "- The hybrid unknown-composite experiment intentionally shows non-identifiability of components even when composite calibration is accurate.",
             "",

@@ -570,4 +570,4 @@
 
 ## Paper Use
 
-Use `warm_start_effect_forest.pdf` and `mechanism_boundary_panel.pdf` as the main warm-start and mechanism evidence. Keep unchanged BAT replay as boundary evidence unless a validated response-aware public replay becomes decision-positive.
+Use `idvc_workflow_surface_panel.pdf` as the main method visual and `warm_start_effect_forest.pdf` as the main warm-start evidence. Keep `mechanism_boundary_panel.pdf` as a diagnostic or appendix visual unless space permits.

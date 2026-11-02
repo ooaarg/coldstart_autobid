@@ -21,9 +21,8 @@ COMMANDS = [
     "python3 -m experiments.bat_calibration",
     "python3 -m src.bat_cold_start_runner --jobs 2 --json-name bat_cold_start_frontier_full.json --md-name bat_cold_start_frontier_full.md --timeout 180",
     "python3 -m src.generate_bat_category_hour_surfaces",
-    "python3 -m src.generate_paper_artifacts --bat experiments/results/bat_full_admissible.json --cold-start experiments/results/bat_cold_start_frontier_full.json --warm-start experiments/results/warm_start_suite.json --bridge experiments/results/supported_bridge.json --out-dir experiments/results",
-    "python3 -m tests.test_cold_start_frontier",
-    "python3 -m tests.test_supported_bridge",
+    "python3 -m src.generate_paper_artifacts --bat experiments/results/bat_full_admissible.json --cold-start experiments/results/bat_cold_start_frontier_full.json --warm-start experiments/results/warm_start_suite.json --bridge experiments/results/supported_bridge.json --out-dir outputs/paper",
+    "python3 -m pytest -q",
     "python3 -m src.generate_artifact_manifest",
 ]
 
@@ -33,6 +32,7 @@ SOURCE_FILES = [
     "requirements.txt",
     "docs/reproducing.md",
     "docs/evaluation.md",
+    "docs/validation-2026-11-02.md",
     "docs/figures/idvc-workflow.png",
     "experiments/README.md",
     "experiments/__init__.py",
@@ -61,7 +61,7 @@ OUTPUTS = [
     "experiments/results/figures/idvc_workflow_surface_panel.pdf",
     "experiments/results/figures/bat_selected_category_hour_dual_surfaces_clean.pdf",
     "experiments/results/figures/warm_start_effect_forest.pdf",
-    "experiments/results/figures/mechanism_boundary_panel.pdf",
+    "docs/figures/warm-start-errors.png",
 ]
 
 

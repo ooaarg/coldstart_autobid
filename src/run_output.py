@@ -11,6 +11,7 @@ from urllib.parse import quote
 
 from src.config import resolved_config
 from src.progress import status
+from src.interpretation import observations
 
 
 def start_run(task, args):
@@ -35,7 +36,12 @@ def save_run(task, args, payload, report, started):
     gallery = folder / ("index.html" if output.name == "results.json" else output.stem + ".html")
     # An interrupted or data-only rerun must not advertise the previous run's figures.
     gallery.unlink(missing_ok=True)
+    if task == "warm_start":
+        for suffix in (".png", ".pdf"):
+            (folder / ("warm_start_reward_trajectories" + suffix)).unlink(missing_ok=True)
     payload["config"] = resolved_config(args)
+    payload["interpretation"] = observations(task, payload)
+    report += "\n\n## Interpretation\n\n" + "\n\n".join(payload["interpretation"]) + "\n"
     status("  Saving results...", args.progress)
     output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     report_path.write_text(report, encoding="utf-8")
@@ -46,9 +52,11 @@ def save_run(task, args, payload, report, started):
         # Build links from this run's exact outputs, not a glob that includes stale plots.
         def link(path):
             return html.escape(quote(os.path.relpath(path, folder)), quote=True)
-        title = task.replace("_", " ").title()
-        note = ("Public BAT proxy calibration; this is not deployment lift." if task == "bat_calibration"
-                else "Controlled synthetic evidence; this is not public-BAT deployment lift.")
+        title = {"warm_start": "Warm Start", "supported_bridge": "Controlled Scalar-State Bridge",
+                 "bat_calibration": "BAT Proxy Calibration"}[task]
+        note = ("Public BAT proxy calibration." if task == "bat_calibration"
+                else "Controlled scalar-state simulation; no auction payments or dual fitting.")
+        comments = "".join(f"<p>{html.escape(note)}</p>" for note in payload["interpretation"])
         images = "\n".join(
             f'<figure><img src="{link(folder / (stem + ".png"))}" alt="{stem.replace("_", " ")}">'
             f'<figcaption><a href="{link(folder / (stem + ".pdf"))}">Download PDF</a> · '
@@ -63,6 +71,7 @@ def save_run(task, args, payload, report, started):
 img{{width:100%;height:auto}}figure{{margin:30px 0}}a{{color:#24659b}}pre{{overflow:auto;background:#f3f5f7;padding:16px}}</style>
 <h1>{title}</h1><p>{note}</p>
 <p><a href="{link(output)}">Result data</a> · <a href="{link(report_path)}">Detailed report</a></p>
+<h2>What this run shows</h2>{comments}
 {images}<details><summary>Parameters used for this run</summary><pre>{settings}</pre></details></html>
 ''', encoding="utf-8")
         print(f"Done in {monotonic() - started:.1f}s. Open {gallery}", flush=True)
